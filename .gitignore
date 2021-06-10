@@ -24,9 +24,22 @@
 *.lai
 *.la
 *.a
-*.lib
+
 
 # Executables
 *.exe
 *.out
 *.app
+.vs/leito/v16/.suo
+.vs/leito/v16/Preview/Browse.VC.db
+.vs/leito/v16/Preview/ipch/AutoPCH/344a477027a8bf33/HOOK.ipch
+*.ipch
+*.iobj
+*.ipdb
+*.pdb
+*.tlog
+*.db-shm
+*.db-wal
+*.opendb
+Release
+Debug
