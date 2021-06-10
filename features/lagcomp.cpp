@@ -173,6 +173,7 @@ namespace features
 				state->last_clientside_anim_framecount -= 1;
 
 			/*animations::enable_bones = */pl->client_animations( ) = true;
+			pl->get_animstate( )->update( vec3_t( pl->angles().x, pl->get_animstate( )->abs_yaw, pl->angles( ).z ) );
 			pl->update_animations( );
 			/*animations::enable_bones = */pl->client_animations( ) = false;
 

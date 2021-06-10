@@ -155,14 +155,14 @@ namespace features
 			animstate* o_state;
 			o_state = e->get_animstate( );
 			auto body_yaw = e->get_animstate( )->eye_yaw - e->get_animstate( )->abs_yaw;
-
+			resolver_info [ e->idx( ) ].hit_abs = e->get_animstate( )->abs_yaw;
 			if (ragebot::hitted [ i ] && ragebot::misses [ i ] == 0) {
 				{//am dat hit la satean ii dam bully acum
 					resolver_info [ e->idx( ) ].hit_abs = e->get_animstate( )->abs_yaw;
 					resolver_info [ e->idx( ) ].hit_state = *e->get_animstate( );
 				}
 			}
-			else resolver_info [ e->idx( ) ].hit_abs = 0;
+			else resolver_info [ e->idx( ) ].hit_abs = e->get_animstate()->abs_yaw;
 
 
 			if (!e->get_animstate( ))
@@ -178,39 +178,39 @@ namespace features
 					if (e->velocity( ).length_2d( ) <= 6.f && e->anim_layer( 3 )->cycle == 0.f && e->anim_layer( 3 )->weight == 0.f &&e->anim_layer(3)->sequence == 979 && e->flags( ) & fl_onground) {
 
 						if (e->lower_body_yaw( ) > 0.f)
-							resolver_info [ e->idx( ) ].resolved_abs = math::normalize_yaw( e->get_animstate( )->eye_yaw + ( e->lower_body_yaw() / ( -60.f ) ) *( e->get_animstate( )->max_yaw/2.f ));
+							resolver_info [ e->idx( ) ].resolved_abs =  e->get_animstate( )->eye_yaw + ( e->lower_body_yaw() / ( -60.f ) ) *( e->get_animstate( )->max_yaw/2.f );
 						if (e->lower_body_yaw( ) < 0.f)
-							resolver_info [ e->idx( ) ].resolved_abs = math::normalize_yaw( e->get_animstate( )->eye_yaw + ( e->lower_body_yaw( ) / ( 60.f ) ) * (e->get_animstate( )->min_yaw/2.f ));
+							resolver_info [ e->idx( ) ].resolved_abs =  e->get_animstate( )->eye_yaw + ( e->lower_body_yaw( ) / ( 60.f ) ) * (e->get_animstate( )->min_yaw/2.f );
 						else if (e->lower_body_yaw( ) == 0)
-							resolver_info [ e->idx( ) ].resolved_abs = e->get_animstate( )->eye_yaw;
+							resolver_info [ e->idx( ) ].resolved_abs = o_state->eye_yaw;
 					}
 					else if (e->velocity( ).length_2d( ) > 0.f && e->velocity( ).length_2d( ) < 150.f && e->flags( ) & fl_onground)
 					{
 						if (body_yaw > 0.f)
-							resolver_info [ e->idx( ) ].resolved_abs = math::normalize_yaw( e->get_animstate( )->eye_yaw + ( body_yaw / e->get_animstate( )->max_yaw ) * ( -60.f ) );
+							resolver_info [ e->idx( ) ].resolved_abs = o_state->eye_yaw + ( body_yaw / e->get_animstate( )->max_yaw ) * ( -60.f ) ;
 						if (body_yaw < 0.f)
-							resolver_info [ e->idx( ) ].resolved_abs = math::normalize_yaw( e->get_animstate( )->eye_yaw + ( body_yaw / e->get_animstate( )->min_yaw ) * ( 60.f ) );
+							resolver_info [ e->idx( ) ].resolved_abs = o_state->eye_yaw + ( body_yaw / e->get_animstate( )->min_yaw ) * ( 60.f ) ;
 						else if (body_yaw == 0)
-							resolver_info [ e->idx( ) ].resolved_abs = e->get_animstate( )->eye_yaw;
+							resolver_info [ e->idx( ) ].resolved_abs = o_state->eye_yaw;
 					}
 					else if (e->velocity( ).length_2d( ) > 150.f && e->flags( ) & fl_onground)
 					{
-						resolver_info [ e->idx( ) ].resolved_abs = math::normalize_yaw( e->lower_body_yaw( ) );
+						resolver_info [ e->idx( ) ].resolved_abs =  e->lower_body_yaw( ) ;
 					}
 					else if (e->velocity( ).length_2d( ) > 150.f && !( e->flags( ) & fl_onground ))
 					{
-						resolver_info [ e->idx( ) ].resolved_abs = math::normalize_yaw( e->get_animstate( )->eye_yaw );
+						resolver_info [ e->idx( ) ].resolved_abs = o_state->eye_yaw ;
 					}
 				}switch (ragebot::misses [ i ] % 4)
 				{
-				case 1:resolver_info [ e->idx( ) ].resolved_abs = math::normalize_yaw( e->get_animstate( )->eye_yaw + side( e ) * 29.f );
+				case 1:resolver_info [ e->idx( ) ].resolved_abs = o_state->eye_yaw + side( e ) * 29.f ;
 					break;
-				case 2:resolver_info [ e->idx( ) ].resolved_abs = math::normalize_yaw( e->get_animstate( )->eye_yaw + side( e ) * 58.f );
+				case 2:resolver_info [ e->idx( ) ].resolved_abs = o_state->eye_yaw + side( e ) * 58.f ;
 
 					break;
-				case 3:resolver_info [ e->idx( ) ].resolved_abs = math::normalize_yaw( e->get_animstate( )->eye_yaw + side( e ) * ( -29.f ) );
+				case 3:resolver_info [ e->idx( ) ].resolved_abs = o_state->eye_yaw + side( e ) * ( -29.f ) ;
 					break;
-				case 4:resolver_info [ e->idx( ) ].resolved_abs = math::normalize_yaw( e->get_animstate( )->eye_yaw + side( e ) * ( -58.f ) );
+				case 4:resolver_info [ e->idx( ) ].resolved_abs = o_state->eye_yaw + side( e ) * ( -58.f ) ;
 					break;
 				}
 			}
