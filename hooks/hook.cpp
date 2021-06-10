@@ -3,13 +3,55 @@
 #include <thread>
 #include <intrin.h>
 #include <csgo.h>
+
+template < typename T >
+bool hook_address( void* target , void* func , T** original ) {
+	if ( !target ) {
+#ifdef _DEBUG
+		printf( "failed to hook a function for null target\n" );
+#endif
+		return false;
+	}
+
+	MH_STATUS status = MH_UNKNOWN;
+
+	// create hook.
+	status = MH_CreateHook( target , func , ( void** ) original );
+
+	if ( status != MH_OK ) {
+		interfaces::cvar->console_color_printf( c_color( 255 , 0 , 0 , 255 ) , "[ERROR] " );
+		dbg_print( "failed create hook 0x%p ==> 0x%p. status: %s \n" , target , func , MH_StatusToString( status ) );
+
+		return false;
+	}
+
+	// enable hook.
+	status = MH_EnableHook( target );
+
+	if ( status != MH_OK ) {
+		interfaces::cvar->console_color_printf( c_color( 255 , 0 , 0 , 255 ) , "[ERROR] " );
+		dbg_print( "failed enable hook 0x%p ==> 0x%p. status: %s \n" , target , func , MH_StatusToString( status ) );
+
+		return false;
+	}
+
+	// shush
+	//interfaces::cvar->console_color_printf( c_color( 0 , 130 , 125 , 255 ) , "[log] " );
+	//dbg_print( "hooked 0x%p ==> 0x%p\n" , target , func );
+
+	return true;
+}
+
+template < typename T >
+bool hook_address( uintptr_t target , void* func , T** original ) {
+	return hook_address( reinterpret_cast< void* >( target ) , func , original );
+}
+
 namespace hook
 {
 	void init( )
 	{
 		const auto model_render_dme = vfunc< decltype( &draw_model_execute ) >( ( void* ) interfaces::model_render , 21 );
-		const auto create_move_proxy_target = vfunc< decltype( &create_move_proxy ) >( ( void* ) interfaces::client , 22 );
-		const auto chclient_fsn = ( void* ) ( utilities::find_sig( "client.dll" , "55 8B EC 8B 0D ? ? ? ? 8B 01 8B 80 74 01 00 00 FF D0 A2" ) );
 		const auto d3d9_end_scene = vfunc< decltype( &end_scene ) >( ( void* ) interfaces::dev , 42 );
 		const auto surface_lockcursor = ( void* ) ( utilities::find_sig( "vguimatsurface.dll" , "80 3D ? ? ? ? 00 8B 91 A4 02 00 00 8B 0D ? ? ? ? C6 05 ? ? ? ? 01" ) );
 		const auto overrideview = ( void* ) ( utilities::find_sig( "client.dll" , "55 8B EC 83 E4 F8 83 EC 58 56 57 8B 3D ? ? ? ? 85 FF" ) );
@@ -43,46 +85,53 @@ namespace hook
 		const auto inpred = vfunc< decltype( &in_prediction ) >( ( void* ) interfaces::prediction , 14 );
 
 		MH_Initialize( );
-		MH_CreateHook( d3d9_end_scene , end_scene , ( void** ) &endscene_fn );
-		MH_CreateHook( draw_set_clr , draw_set_color , ( void** ) &set_col_fn );
-		MH_CreateHook( runcmd , run_command , ( void** ) &run_command_fn );
-		MH_CreateHook( chclient_fsn , frame_stage_notify , ( void** ) &fsn_fn );
-		MH_CreateHook( buildtransforms , build_transformations , ( void** ) &transformations_fn );
-		MH_CreateHook( shouldskipanimframe , should_skip_animframe , ( void** ) &skip_animframe_fn );
-		MH_CreateHook( c_csplayer_doextraboneprocessing , extra_bone_process , ( void** ) &extra_bone_prc_fn );
-		//MH_CreateHook( c_baseanimating_setupbones , setup_bones , ( void** ) &setup_bones_fn );
-		//MH_CreateHook( writeucmd_client , write_cmd_delta_buf , ( void** ) &write_cmd_delta_buf_fn );
-		MH_CreateHook( sv_cheats_target , sv_cheats_get_bool , ( void** ) &sv_cheats_get_bool_fn );
-		MH_CreateHook( bspquery_disable_occulusion , disable_occulusion , ( void** ) &model_occulusion_fn );
-		//MH_CreateHook( c_baseanim_updateclientsideanimations , update_client_animations , ( void** ) &update_client_animations_fn );
-		MH_CreateHook( engine_is_hltv , is_hltv , ( void** ) &hltv_fn );
-		MH_CreateHook( cbaseanim_standardblendingulres , standard_blending_rules , ( void** ) &standard_blending_rules_fn );
-		MH_CreateHook( overrideview , override_view , ( void** ) &override_fn );
-		MH_CreateHook( model_render_dme , draw_model_execute , ( void** ) &dme_fn );
-		MH_CreateHook( create_move_proxy_target , create_move_proxy , ( void** ) &create_move_proxy_fn );
-		MH_CreateHook( surface_lockcursor , lock_cursor , ( void** ) &lock_fn );
-		MH_CreateHook( c_csplayer_calc_view , calc_view , ( void** ) &calc_view_fn );
-		MH_CreateHook( c_csplayer_weaponshootpos , modify_eye_position , ( void** ) &modify_eye_position_fn );
-		MH_CreateHook( seq_change , check_for_sequence_change , ( void** ) &check_for_sequence_change_fn );
-		MH_CreateHook( cnetchan_sendnetmsg , send_netmsg , ( void** ) &send_netmsg_fn );
-		//MH_CreateHook( levelinitpre , level_init_pre , ( void** ) &level_init_pre_fn );
-		//MH_CreateHook( levelend , level_shutdown , ( void** ) &level_shutdown_fn );
-		MH_CreateHook( physicssimulate , physics_simulate , ( void** ) &physics_simulate_fn );
-		MH_CreateHook( paint_traverse_target , paint_traverse , ( void** ) &paint_traverse_fn );
-		MH_CreateHook( gloweffectspectator_target , gloweffectspectator , ( void** ) &gloweffectspectator_fn );
-		MH_CreateHook( clmove , cl_move , ( void** ) &cl_move_fn );
-		MH_CreateHook( fireevent , fire_event , ( void** ) &fire_event_fn );
-		MH_CreateHook( inpred , in_prediction , ( void** ) &in_prediction_fn );
-		MH_CreateHook( c_csplayer_get_eye_angles , get_eye_angles , ( void** ) &eye_angles_fn );
-		//MH_CreateHook( camthinkk , cam_think , ( void** ) &cam_think_fn );
-		//MH_CreateHook( camtotp , cam_to_third_person , ( void** ) &cam_to_third_person_fn );
+		hook_address( d3d9_end_scene , end_scene , &endscene_fn );
+		hook_address( draw_set_clr , draw_set_color , &set_col_fn );
+		hook_address( runcmd , run_command , &run_command_fn );
+		hook_address( buildtransforms , build_transformations , &transformations_fn );
+		hook_address( shouldskipanimframe , should_skip_animframe , &skip_animframe_fn );
+		hook_address( c_csplayer_doextraboneprocessing , extra_bone_process , &extra_bone_prc_fn );
+		//hook_address( c_baseanimating_setupbones , setup_bones , &setup_bones_fn );
+		//hook_address( writeucmd_client , write_cmd_delta_buf , &write_cmd_delta_buf_fn );
+		hook_address( sv_cheats_target , sv_cheats_get_bool , &sv_cheats_get_bool_fn );
+		hook_address( bspquery_disable_occulusion , disable_occulusion , &model_occulusion_fn );
+		//hook_address( c_baseanim_updateclientsideanimations , update_client_animations , &update_client_animations_fn );
+		hook_address( engine_is_hltv , is_hltv , &hltv_fn );
+		hook_address( cbaseanim_standardblendingulres , standard_blending_rules , &standard_blending_rules_fn );
+		hook_address( overrideview , override_view , &override_fn );
+		hook_address( model_render_dme , draw_model_execute , &dme_fn );
+		hook_address( surface_lockcursor , lock_cursor , &lock_fn );
+		hook_address( c_csplayer_calc_view , calc_view , &calc_view_fn );
+		hook_address( c_csplayer_weaponshootpos , modify_eye_position , &modify_eye_position_fn );
+		hook_address( seq_change , check_for_sequence_change , &check_for_sequence_change_fn );
+		hook_address( cnetchan_sendnetmsg , send_netmsg , &send_netmsg_fn );
+		//hook_address( levelinitpre , level_init_pre , &level_init_pre_fn );
+		//hook_address( levelend , level_shutdown , &level_shutdown_fn );
+		hook_address( physicssimulate , physics_simulate , &physics_simulate_fn );
+		hook_address( paint_traverse_target , paint_traverse , &paint_traverse_fn );
+		hook_address( gloweffectspectator_target , gloweffectspectator , &gloweffectspectator_fn );
+		hook_address( clmove , cl_move , &cl_move_fn );
+		hook_address( fireevent , fire_event , &fire_event_fn );
+		hook_address( inpred , in_prediction , &in_prediction_fn );
+		hook_address( c_csplayer_get_eye_angles , get_eye_angles , &eye_angles_fn );
+		//hook_address( camthinkk , cam_think , ( void** ) &cam_think_fn );
+		//hook_address( camtotp , cam_to_third_person , &cam_to_third_person_fn );
 
 		//const auto rb_clmove = reinterpret_cast< decltype( &csgo::rebuilt_cl_move ) >( utilities::find_sig( "engine.dll" , "55 8B EC 81 EC ? ? ? ? 53 56 57 8B 3D ? ? ? ? 8A" ) );
-		//MH_CreateHook( rb_clmove , csgo::rebuilt_cl_move , ( void** ) &csgo::rb_clmove );
+		//hook_address( rb_clmove , csgo::rebuilt_cl_move , &csgo::rb_clmove );
 
-		MH_EnableHook( nullptr );
+		//MH_EnableHook( nullptr );
 
-		interfaces::cvar->console_color_printf( c_color( 0 , 130 , 125 , 255 ) , "[log] " );
-		dbg_print( "Initialized hooks. \n" );
+		//interfaces::cvar->console_color_printf( c_color( 0 , 130 , 125 , 255 ) , "[log] " );
+		//dbg_print( "Initialized hooks. \n" );
+	}
+
+	void init2( )
+	{
+		const auto create_move_proxy_target = vfunc< decltype( &create_move_proxy ) >( ( void* ) interfaces::client , 22 );
+		const auto chclient_fsn = ( void* ) ( utilities::find_sig( "client.dll" , "55 8B EC 8B 0D ? ? ? ? 8B 01 8B 80 74 01 00 00 FF D0 A2" ) );
+
+		hook_address( create_move_proxy_target , create_move_proxy , &create_move_proxy_fn );
+		hook_address( chclient_fsn , frame_stage_notify , &fsn_fn );
 	}
 }

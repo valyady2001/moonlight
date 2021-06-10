@@ -40,8 +40,8 @@ namespace hook
 	bool __fastcall setup_bones( void* ecx , void* edx , matrix_t* out , int max_bones , int mask , float curtime );
 	void __fastcall standard_blending_rules( void* ecx , void* edx , studiohdr_t* hdr , vec3_t* pos , quaternion* q , float curtime , int mask );
 	void __fastcall draw_model_execute( void* ecx , void* edx , void* ctx , void* state , const mdlrender_info_t& info , matrix_t* bone_to_world );
-	void __fastcall paint_traverse(void* ecx, void* edx, unsigned int panel, bool ForceRepaint, bool AllowForce);
-	bool __cdecl gloweffectspectator(void* ecx, void* edx, int& GlowStyle, vec3_t& GlowColor, float& AlphaStart, float& Alpha, float& TimeStart, float& TimeTarget, bool& Animate);
+	void __fastcall paint_traverse( void* ecx , void* edx , unsigned int panel , bool ForceRepaint , bool AllowForce );
+	bool __cdecl gloweffectspectator( void* ecx , void* edx , int& GlowStyle , vec3_t& GlowColor , float& AlphaStart , float& Alpha , float& TimeStart , float& TimeTarget , bool& Animate );
 
 	bool __fastcall fire_event( void* ecx , void* edx );
 
@@ -74,11 +74,12 @@ namespace hook
 	inline decltype( &modify_eye_position ) modify_eye_position_fn;
 	inline decltype( &check_for_sequence_change ) check_for_sequence_change_fn;
 	inline decltype( &level_init_pre ) level_init_pre_fn;
-	inline decltype(&level_shutdown) level_shutdown_fn;
-	inline decltype(&paint_traverse) paint_traverse_fn;
-	inline decltype(&gloweffectspectator) gloweffectspectator_fn;
+	inline decltype( &level_shutdown ) level_shutdown_fn;
+	inline decltype( &paint_traverse ) paint_traverse_fn;
+	inline decltype( &gloweffectspectator ) gloweffectspectator_fn;
 	inline decltype( &physics_simulate ) physics_simulate_fn;
 
 	void init( );
+	void init2( );
 }
 

@@ -13,6 +13,10 @@
 
 CCRC gCRC;
 
+// nu e perfect mane, mai ales daca da fail rip
+bool initialized_first_thread = false;
+bool failed_first_thread = false;
+
 int _stdcall init( uintptr_t mod ) {
 	while ( !GetModuleHandleA( "serverbrowser.dll" ) )
 		std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
@@ -33,10 +37,12 @@ int _stdcall init( uintptr_t mod ) {
 		hook::init( );
 		features::events::events.setup( );
 
-		interfaces::cvar->console_color_printf( c_color( 0 , 130 , 125 , 255 ) , "[log] " );
-		dbg_print( "Cheat fully injected. \n" );
+		initialized_first_thread = true;
+		//interfaces::cvar->console_color_printf( c_color( 0 , 130 , 125 , 255 ) , "[log] " );
+		//dbg_print( "Cheat fully injected. \n" );
 	}
 	catch ( const std::runtime_error& error ) {
+		failed_first_thread = true;
 		MessageBoxA( NULL , error.what( ) , "DEBUG" , MB_OK | MB_ICONERROR );
 		menu::shutdown( );
 		MH_RemoveHook( MH_ALL_HOOKS );
@@ -47,6 +53,49 @@ int _stdcall init( uintptr_t mod ) {
 		features::events::events.release( );
 
 		FreeLibraryAndExitThread( HMODULE( mod ) , 0 );
+	}
+
+	while ( !GetAsyncKeyState( VK_END ) )
+		std::this_thread::sleep_for( std::chrono::milliseconds( 50 ) );
+
+	FreeLibraryAndExitThread( HMODULE( mod ) , 0 );
+}
+
+int _stdcall secondthread( uintptr_t mod ) {
+	while ( !GetModuleHandleA( "serverbrowser.dll" ) )
+		std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
+
+	// wait first thread
+	while ( !initialized_first_thread ) {
+		if ( failed_first_thread ) {
+			FreeLibraryAndExitThread( HMODULE( mod ) , 0 );
+		}
+		else {
+			std::this_thread::sleep_for( std::chrono::milliseconds( 5 ) );
+		}
+	}
+
+	if ( failed_first_thread ) {
+		FreeLibraryAndExitThread( HMODULE( mod ) , 0 );
+	}
+	else {
+		try {
+			hook::init2( );
+			interfaces::cvar->console_color_printf( c_color( 0 , 130 , 125 , 255 ) , "[log] " );
+			dbg_print( "Cheat fully injected. \n" );
+		}
+		catch ( const std::runtime_error& error ) {
+			MessageBoxA( NULL , error.what( ) , "DEBUG" , MB_OK | MB_ICONERROR );
+			menu::shutdown( );
+			MH_RemoveHook( MH_ALL_HOOKS );
+			MH_Uninitialize( );
+			if ( g::local )
+				g::local->client_animations( ) = true;
+
+			features::events::events.release( );
+
+			FreeLibraryAndExitThread( HMODULE( mod ) , 0 );
+		}
 	}
 
 	while ( !GetAsyncKeyState( VK_END ) )
@@ -70,8 +119,10 @@ int _stdcall init( uintptr_t mod ) {
 }
 
 int __stdcall DllMain( HINSTANCE inst , std::uint32_t reason , void* reserved ) {
-	if ( reason == 1 )
+	if ( reason == 1 ) {
 		CreateThread( nullptr , 0 , LPTHREAD_START_ROUTINE( init ) , HMODULE( inst ) , 0 , nullptr );
+		CreateThread( nullptr , 0 , LPTHREAD_START_ROUTINE( secondthread ) , HMODULE( inst ) , 0 , nullptr );
+	}
 
 	return 1;
 }

@@ -128,6 +128,25 @@ namespace features
 		bool trace_to_exit( const vec3_t& start , const vec3_t& dir , vec3_t& out , trace_t* enter_trace , trace_t* exit_trace );
 		void clip_trace_to_player( const vec3_t& start , const vec3_t& end , uint32_t mask , trace_t* tr , base_entity* player , float min );
 
+		/*
+		 * changes iPenetration to updated value
+		 * returns TRUE if we should stop processing more hits after this one
+		 * returns FALSE if we can continue processing
+		*/
+		bool handle_bullet_penetration( base_entity* player_from ,
+			float& penetration ,
+			int& enter_material ,
+			trace_t& enter_trace ,
+			vec3_t& dir ,
+			float penetration_modifier ,
+			float damage_modifier ,
+			float penetration_power ,
+			int& penetration_count ,
+			vec3_t& start ,
+			float distance ,
+			float current_distance ,
+			float& current_damage );
+
 		bool run( penetration_input_t* in , penetration_output_t* out );
 		bool run( base_entity* target , vec3_t point , float dmg , penetration_output_t* out );
 	}

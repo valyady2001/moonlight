@@ -1,5 +1,6 @@
 ﻿#include <features.h>
 #include <intrin.h>
+#include <mutex>
 #include <menu/menu.h>
 using namespace features;
 #define MAX_COORD_FLOAT ( 16384.0f )
@@ -13,9 +14,9 @@ __declspec( naked ) void __fastcall hook::create_move_proxy( void* _this , int ,
 		mov  ebp , esp
 		push ebx; not sure if we need this
 		push esp
-		push dword ptr[ active ]
-		push dword ptr[ input_sample_frametime ]
-		push dword ptr[ sequence_number ]
+		push dword ptr [ active ]
+		push dword ptr [ input_sample_frametime ]
+		push dword ptr [ sequence_number ]
 		call hook::create_move
 		pop  ebx
 		pop  ebp
@@ -35,13 +36,13 @@ void auto_pistol( usercmd* cmd )
 	if ( g::local->is_alive( ) )
 		if ( cmd->buttons & in_attack && !wpn->is_sniper( ) && !wpn->is_grenade( ) && !wpn->is_c4( ) && wpn->item_definition_index( ) != item_def_idx::revolver && !wpn->is_knife( ) )
 		{
-			static bool flipFlop = true; 
+			static bool flipFlop = true;
 			if ( flipFlop ) { cmd->buttons |= in_attack; }
 			else { cmd->buttons &= ( ~in_attack ); }
 			flipFlop = !flipFlop;
 		}
 }
-auto max_accurate_speed = [ & ]( ) {
+auto max_accurate_speed = [ & ] ( ) {
 	auto wpn = g::local->weapon( );
 	if ( !wpn )
 		return -1.f;
@@ -51,22 +52,25 @@ auto max_accurate_speed = [ & ]( ) {
 void clan_tag( )
 {
 	auto apply = [ ] ( const char* name ) -> void {
-		using Fn = int( __fastcall* )( const char*, const char* );
+		using Fn = int( __fastcall* )( const char* , const char* );
 		static auto fn = reinterpret_cast< Fn >( utilities::find_sig( "engine.dll" , "53 56 57 8B DA 8B F9 FF 15" ) );
-		fn( name, name );
+		fn( name , name );
 	};
 
 	static float last_time;
 
-	if (int( interfaces::global_vars->curtime ) != last_time)
+	if ( int( interfaces::global_vars->curtime ) != last_time )
 	{
 		std::string name = ( "  moonlight   " );
-		apply( ( char* ) name.substr( 0, int( interfaces::global_vars->curtime ) % name.length( ) ).c_str( ) );
-		last_time = int( interfaces::global_vars->curtime + 0.1);
+		apply( ( char* ) name.substr( 0 , int( interfaces::global_vars->curtime ) % name.length( ) ).c_str( ) );
+		last_time = int( interfaces::global_vars->curtime + 0.1 );
 	}
 }
+
+std::mutex create_move_mutex;
 void __stdcall hook::create_move( int sequence_number , float input_sample_frametime , bool active , bool& bSendPacket )
 {
+	create_move_mutex.lock( );
 	static auto oCreateMove = create_move_proxy_fn;
 
 	oCreateMove( interfaces::client , 0 , sequence_number , input_sample_frametime , active );
@@ -74,8 +78,11 @@ void __stdcall hook::create_move( int sequence_number , float input_sample_frame
 	auto cmd = interfaces::input->get_user_cmd( sequence_number );
 	auto verified = interfaces::input->get_verified_user_cmd( sequence_number );
 
-	if ( !cmd || !cmd->command_number )
+	if ( !cmd || !cmd->command_number ) {
+		create_move_mutex.unlock( );
 		return;
+	}
+
 	if ( interfaces::engine->is_connected( ) && interfaces::engine->is_in_game( ) && g::local ) {
 		if ( menu::opened ) {
 			if ( cmd->buttons & in_attack )
@@ -102,7 +109,7 @@ void __stdcall hook::create_move( int sequence_number , float input_sample_frame
 		{
 			ragebot::run( cmd );
 			ragebot::handle_misses( );
-			if (g_var.clantag)
+			if ( g_var.clantag )
 				clan_tag( );
 			misc::doubletap( cmd );
 			misc::fake_duck( cmd );
@@ -135,14 +142,17 @@ void __stdcall hook::create_move( int sequence_number , float input_sample_frame
 	}
 	verified->m_cmd = *cmd;
 	verified->m_crc = cmd->GetChecksum( );
+	create_move_mutex.unlock( );
 }
 
+std::mutex frame_stage_mutex;
 void __fastcall hook::frame_stage_notify( void* ecx , void* edx , int stage ) {
+	frame_stage_mutex.lock( );
 	static auto mat_postprocess_enable = interfaces::cvar->find_var( "mat_postprocess_enable" );
 	static auto r_dynamic = interfaces::cvar->find_var( "r_dynamic" );
 	static auto r_dynamiclighting = interfaces::cvar->find_var( "r_dynamiclighting" );
 
-	if ( g_var.esp.removals[ 5 ] )
+	if ( g_var.esp.removals [ 5 ] )
 	{
 		mat_postprocess_enable->set_value( 0 );
 		r_dynamic->set_value( 0 );
@@ -163,7 +173,7 @@ void __fastcall hook::frame_stage_notify( void* ecx , void* edx , int stage ) {
 	static auto cl_csm_rope_shadows = interfaces::cvar->find_var( "cl_csm_rope_shadows" );
 	static auto cl_csm_sprite_shadows = interfaces::cvar->find_var( "cl_csm_sprite_shadows" );
 
-	if ( g_var.esp.removals[ 7 ] ) {
+	if ( g_var.esp.removals [ 7 ] ) {
 		cl_csm_shadows->set_value( 0 );
 		cl_csm_world_shadows->set_value( 0 );
 		cl_foot_contact_shadows->set_value( 0 );
@@ -185,8 +195,8 @@ void __fastcall hook::frame_stage_notify( void* ecx , void* edx , int stage ) {
 	static auto panorama_disable_blur = interfaces::cvar->find_var( ( "@panorama_disable_blur" ) ); panorama_disable_blur->null_callback( );
 	static auto panorama_eco_mode = interfaces::cvar->find_var( ( "@panorama_eco_mode" ) ); panorama_eco_mode->null_callback( );
 
-	panorama_disable_blur->set_value( g_var.esp.removals[ 6 ] ? 1 : 0 );
-	panorama_eco_mode->set_value( g_var.esp.removals[ 6 ] ? 2 : 1 );
+	panorama_disable_blur->set_value( g_var.esp.removals [ 6 ] ? 1 : 0 );
+	panorama_eco_mode->set_value( g_var.esp.removals [ 6 ] ? 2 : 1 );
 
 
 	//static auto cl_interp = interfaces::cvar->find_var( "cl_interp" ); /* self-explanatory TODO: move this in level init */
@@ -205,11 +215,12 @@ void __fastcall hook::frame_stage_notify( void* ecx , void* edx , int stage ) {
 		ragebot::pre_stop = false;
 		for ( int i = 0; i <= 64; i++ )
 		{
-			if ( lagcomp::rec[ i ].size( ) )
-				lagcomp::rec[ i ].clear( );
+			if ( lagcomp::rec [ i ].size( ) )
+				lagcomp::rec [ i ].clear( );
 		}
 		g::local = nullptr;
 		night = 0.f;
+		frame_stage_mutex.unlock( );
 		return;
 	}
 
@@ -230,67 +241,67 @@ void __fastcall hook::frame_stage_notify( void* ecx , void* edx , int stage ) {
 				if ( !map ) return;
 
 				for ( auto i = 0; i < map->m_interpolatedentries; i++ ) {
-					map->m_entries[ i ].m_needstointerpolate = false;
+					map->m_entries [ i ].m_needstointerpolate = false;
 				}
 			}
 		}
-		
+
 		if ( stage == frame_render_start )
 		{
 			animations::update_local( );
 			visuals::remove_flash( );
 			visuals::remove_smoke( );
 
-			for (int i = 1; i <= 64; i++)
+			for ( int i = 1; i <= 64; i++ )
 			{
 				auto e = ( base_entity* ) interfaces::ent_list->get_client_entity( i );
-				if (!e || !e->is_alive( ) || e == g::local || e->dormant( ) || e->client_class( )->class_id != ( int ) EClassIds::CCSPlayer)
+				if ( !e || !e->is_alive( ) || e == g::local || e->dormant( ) || e->client_class( )->class_id != ( int ) EClassIds::CCSPlayer )
 					continue;
 				*reinterpret_cast< int* > ( reinterpret_cast< uintptr_t > ( e ) + 0xA30 ) = interfaces::global_vars->framecount;
 				//we'll skip occlusion checks now
 				*reinterpret_cast< int* > ( reinterpret_cast< uintptr_t > ( e ) + 0xA28 ) = 0; //clear occlusion flags
 				*reinterpret_cast< int* > ( reinterpret_cast< uintptr_t > ( e ) + 0xA64 ) = interfaces::global_vars->framecount;
 			}
-			
+
 		}
 		if ( night != g_var.esp.nightmode )
 		{
 			visuals::color_modulate_world( );
 			night = g_var.esp.nightmode;
 		}
-		
+
 	}
-	if (stage == frame_net_update_end)
+	if ( stage == frame_net_update_end )
 	{
-		for (int i = 1; i <= 64; i++)
+		for ( int i = 1; i <= 64; i++ )
 		{
 			auto e = ( base_entity* ) interfaces::ent_list->get_client_entity( i );
-			if (!e || !e->is_alive( ) || e == g::local || e->dormant( ) || e->client_class( )->class_id != ( int ) EClassIds::CCSPlayer)
+			if ( !e || !e->is_alive( ) || e == g::local || e->dormant( ) || e->client_class( )->class_id != ( int ) EClassIds::CCSPlayer )
 				continue;
-			if (g_var.ragebot.resolver)
+			if ( g_var.ragebot.resolver )
 				resolver::resolve( e );
 
 		}
 		lagcomp::update_ticks( );
 	}
-	
+
 	fsn_fn( ecx , edx , stage );
 
 	if ( stage == frame_net_update_end )
 	{
-		
 
 
-		
+
+
 		if ( interfaces::engine->is_connected( ) && interfaces::engine->is_in_game( ) && g::local )
 		{
-			
+
 			for ( int i = 1; i <= 64; i++ ) {
 				auto e = ( base_entity* ) interfaces::ent_list->get_client_entity( i );
 				if ( !e || !e->is_alive( ) || e == g::local || e->dormant( ) || e->client_class( )->class_id != ( int ) EClassIds::CCSPlayer )
 					continue;
 
-				
+
 
 				const auto hViewModel = e->get_viewmodel( );
 				if ( hViewModel != 0xFFFFFFFF ) {
@@ -300,10 +311,11 @@ void __fastcall hook::frame_stage_notify( void* ecx , void* edx , int stage ) {
 					}
 				}
 			}
-			
+
 		}
 	}
 
+	frame_stage_mutex.unlock( );
 }
 
 
@@ -344,7 +356,7 @@ void __fastcall hook::override_view( void* ecx , void* edx , view_setup* setup )
 		if ( weapon && weapon->is_scopeable( ) && g::local->is_scoped( ) ) {
 			const float o_setup_fov = setup->fov;
 
-			if ( g_var.esp.removals[ 0 ] )
+			if ( g_var.esp.removals [ 0 ] )
 			{
 				if ( weapon->zoom( ) == 2 )
 					setup->fov = 50;
@@ -355,18 +367,18 @@ void __fastcall hook::override_view( void* ecx , void* edx , view_setup* setup )
 				setup->fov = o_setup_fov;
 		}
 
-		if ( g_var.esp.removals[ 2 ] )
+		if ( g_var.esp.removals [ 2 ] )
 		{
 			vec3_t viewPunch = reinterpret_cast< base_entity* >( g::local )->punch_angle( );
 			vec3_t aimPunch = reinterpret_cast< base_entity* >( g::local )->aim_punch_angle( );
 
-			setup->angles[ 0 ] -= ( viewPunch[ 0 ] + ( aimPunch[ 0 ] * 2 * 0.4499999f ) );
-			setup->angles[ 1 ] -= ( viewPunch[ 1 ] + ( aimPunch[ 1 ] * 2 * 0.4499999f ) );
-			setup->angles[ 2 ] -= ( viewPunch[ 2 ] + ( aimPunch[ 2 ] * 2 * 0.4499999f ) );
+			setup->angles [ 0 ] -= ( viewPunch [ 0 ] + ( aimPunch [ 0 ] * 2 * 0.4499999f ) );
+			setup->angles [ 1 ] -= ( viewPunch [ 1 ] + ( aimPunch [ 1 ] * 2 * 0.4499999f ) );
+			setup->angles [ 2 ] -= ( viewPunch [ 2 ] + ( aimPunch [ 2 ] * 2 * 0.4499999f ) );
 		}
 		misc::thirdperson( );
 
-		if ( keyhandler::auto_check( g_var.antihit.fakeduck_bind[ 1 ] , g_var.antihit.fakeduck_bind[ 0 ] ) )
+		if ( keyhandler::auto_check( g_var.antihit.fakeduck_bind [ 1 ] , g_var.antihit.fakeduck_bind [ 0 ] ) )
 			setup->origin.z = g::local->abs_origin( ).z + 64.f;
 	}
 
@@ -384,7 +396,7 @@ void __fastcall hook::extra_bone_process( void* ecx , void* edx , int a2 , int a
 	auto state = e->get_animstate( );
 
 	// backup pointer.
-	base_entity* backup{ nullptr };
+	base_entity* backup { nullptr };
 
 	if ( state ) {
 		// backup player ptr.
@@ -549,14 +561,14 @@ int __fastcall hook::disable_occulusion( void* bsp , void* edx , vec3_t& mins , 
 		return model_occulusion_fn( bsp , edx , mins , maxs , pList , listMax );
 
 	/* made it ghetto. true */
-	auto get_client_unknown = [ ]( void* renderable ) {
+	auto get_client_unknown = [ ] ( void* renderable ) {
 		typedef void* ( __thiscall* o_fn )( void* );
-		return ( *( o_fn** ) renderable )[ 0 ]( renderable );
+		return ( *( o_fn** ) renderable ) [ 0 ]( renderable );
 	};
 
-	auto get_base_entity = [ ]( void* c_unk ) {
+	auto get_base_entity = [ ] ( void* c_unk ) {
 		typedef base_entity* ( __thiscall* o_fn )( void* );
-		return ( *( o_fn** ) c_unk )[ 7 ]( c_unk );
+		return ( *( o_fn** ) c_unk ) [ 7 ]( c_unk );
 	};
 
 	auto base_entity = get_base_entity( get_client_unknown( info->renderable ) );
@@ -608,7 +620,7 @@ bool __fastcall hook::write_cmd_delta_buf( void* edx , void* ecx , int slot , bf
 		from = to;
 	}
 	auto last_real_cmd = interfaces::input->get_user_cmd( slot , from );
-	auto from_cmd = usercmd{};
+	auto from_cmd = usercmd {};
 
 	if ( last_real_cmd )
 		from_cmd = *last_real_cmd;
@@ -627,7 +639,7 @@ bool __fastcall hook::write_cmd_delta_buf( void* edx , void* ecx , int slot , bf
 
 void __cdecl hook::cl_move( float accumulated_extra_samples , bool bFinalTick )
 {
-	if ( g::local && g::local->is_alive( ) && !keyhandler::auto_check( g_var.antihit.fakeduck_bind[ 1 ] , g_var.antihit.fakeduck_bind[ 0 ] ) )
+	if ( g::local && g::local->is_alive( ) && !keyhandler::auto_check( g_var.antihit.fakeduck_bind [ 1 ] , g_var.antihit.fakeduck_bind [ 0 ] ) )
 	{
 		if ( misc::in_clmove( ) ) {
 			return;
@@ -706,7 +718,7 @@ bool __fastcall hook::in_prediction( void* ecx , void* edx )
 }
 void __fastcall hook::draw_set_color( c_surface* ecx , void* edx , int r , int g , int b , int a )
 {
-	if ( !g_var.esp.removals[ 1 ] )
+	if ( !g_var.esp.removals [ 1 ] )
 		return set_col_fn( ecx , edx , r , g , b , a );
 
 	const auto return_address = uintptr_t( _ReturnAddress( ) );
@@ -803,22 +815,22 @@ void __fastcall hook::paint_traverse( void* ecx , void* edx , unsigned int panel
 			return;
 
 		for ( int i = 1; i <= 64; i++ ) {
-			features::visuals::paint_data_valid[ i ] = false;
+			features::visuals::paint_data_valid [ i ] = false;
 			base_entity* player = ( base_entity* ) interfaces::ent_list->get_client_entity( i );
 			if ( !player ||
 				player->dormant( ) ||
 				!player->is_alive( ) ||
 				player->team( ) == g::local->team( ) ||
-				!features::visuals::get_playerbox( player , features::visuals::paint_bbox[ i ] ) )
+				!features::visuals::get_playerbox( player , features::visuals::paint_bbox [ i ] ) )
 				continue;
 
 			auto weapon = player->weapon( );
 			if ( !weapon )
 				continue;
 
-			features::visuals::paint_weapondata[ i ] = weapon->weapon_data( );
-			features::visuals::paint_weapon[ i ] = weapon;
-			features::visuals::paint_data_valid[ i ] = true;
+			features::visuals::paint_weapondata [ i ] = weapon->weapon_data( );
+			features::visuals::paint_weapon [ i ] = weapon;
+			features::visuals::paint_data_valid [ i ] = true;
 		}
 	}
 }
@@ -837,11 +849,11 @@ bool __cdecl hook::gloweffectspectator( void* ecx , void* edx , int& GlowStyle ,
 		player->team( ) == g::local->team( ) )
 		return gloweffectspectator_fn( ecx , edx , GlowStyle , GlowColor , AlphaStart , Alpha , TimeStart , TimeTarget , Animate );
 
-	GlowColor = vec3_t( g_var.esp.glow_clr[ 0 ] ,
-		g_var.esp.glow_clr[ 1 ] ,
-		g_var.esp.glow_clr[ 2 ] );
+	GlowColor = vec3_t( g_var.esp.glow_clr [ 0 ] ,
+		g_var.esp.glow_clr [ 1 ] ,
+		g_var.esp.glow_clr [ 2 ] );
 
-	Alpha = g_var.esp.glow_clr[ 3 ];
+	Alpha = g_var.esp.glow_clr [ 3 ];
 	GlowStyle = 0;
 	return true;
 	//return gloweffectspectator_fn( ecx , edx , GlowStyle , GlowColor , AlphaStart , Alpha , TimeStart , TimeTarget , Animate );
